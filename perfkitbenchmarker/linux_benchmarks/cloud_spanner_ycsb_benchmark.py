@@ -140,7 +140,11 @@ def GetConfig(user_config):
   config = configs.LoadConfig(BENCHMARK_CONFIG, user_config, BENCHMARK_NAME)
   if FLAGS['ycsb_client_vms'].present:
     config['vm_groups']['default']['vm_count'] = FLAGS.ycsb_client_vms
-  config['spanner']['ddl'] = _BuildSchema()
+  if FLAGS['cloud_spanner_db_dialect'].present and \
+    FLAGS.cloud_spanner_db_dialect.upper() == gcp_spanner.DB_DIALECT_PGSQL:
+    config['spanner']['ddl'] = _BuildPostgreSQLSchema()
+  else:
+    config['spanner']['ddl'] = _BuildGoogleSQLSchema()
   return config
 
 
@@ -323,11 +327,11 @@ def Cleanup(benchmark_spec):
   del benchmark_spec
 
 
-def _BuildSchema():
+def _BuildGoogleSQLSchema():
   """BuildSchema.
 
   Returns:
-    A string of DDL for creating a Spanner table.
+    A string of GoogleSQL DDL for creating a Spanner table.
   """
   fields = ',\n'.join(
       [f'field{i} STRING(MAX)' for i in range(FLAGS.ycsb_field_count)]
@@ -337,6 +341,24 @@ def _BuildSchema():
     id     STRING(MAX),
     {fields}
   ) PRIMARY KEY(id)
+  """
+
+
+def _BuildPostgreSQLSchema():
+  """BuildSchema.
+
+  Returns:
+    A string of PostgreSQL DDL for creating a Spanner table.
+  """
+  fields = ',\n'.join(
+      [f'field{i} character varying(1024)' for i in range(FLAGS.ycsb_field_count)]
+  )
+  return f"""
+  CREATE TABLE {BENCHMARK_TABLE} (
+    id     character varying(1024) NOT NULL,
+    {fields},
+    PRIMARY KEY(id)
+  )
   """
 
 

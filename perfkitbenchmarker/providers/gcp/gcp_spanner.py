@@ -38,12 +38,12 @@ import requests
 
 # Valid Spanner database dialects:
 DB_DIALECT_GOOGLESQL = 'GOOGLE_STANDARD_SQL'
-DB_DIALECT_PG = 'POSTGRESQL'
+DB_DIALECT_PGSQL = 'POSTGRESQL'
 
 FLAGS = flags.FLAGS
 flags.DEFINE_enum('cloud_spanner_db_dialect',
                   DB_DIALECT_GOOGLESQL,
-                  [DB_DIALECT_GOOGLESQL, DB_DIALECT_PG],
+                  [DB_DIALECT_GOOGLESQL, DB_DIALECT_PGSQL],
                   'The dialect for the Cloud Spanner database. '
                   'Use default config if unset.', case_sensitive=False)
 flags.DEFINE_string('cloud_spanner_config',
@@ -63,11 +63,18 @@ DEFAULT_SPANNER_TYPE = 'default'
 _DEFAULT_DB_DIALECT = DB_DIALECT_GOOGLESQL
 _DEFAULT_REGION = 'us-central1'
 _DEFAULT_DESCRIPTION = 'Spanner instance created by PKB.'
-_DEFAULT_DDL = """
+_DEFAULT_GOOGLESQL_DDL = """
   CREATE TABLE pkb_table (
     id     STRING(MAX),
     field0 STRING(MAX)
   ) PRIMARY KEY(id)
+  """
+_DEFAULT_PGSQL_DDL = """
+  CREATE TABLE pkb_table (
+    id     character varying(1024) NOT NULL,
+    field0 character varying(1024),
+    PRIMARY KEY(id)
+  )
   """
 _DEFAULT_ENDPOINT = 'https://spanner.googleapis.com'
 _DEFAULT_NODES = 1
@@ -207,8 +214,8 @@ class GcpSpannerInstance(resource.BaseResource):
     self.name = name or f'pkb-instance-{FLAGS.run_uri}'
     self.database = database or f'pkb-database-{FLAGS.run_uri}'
     self._description = description or _DEFAULT_DESCRIPTION
-    self._ddl = ddl or _DEFAULT_DDL
     self._db_dialect = db_dialect or _DEFAULT_DB_DIALECT
+    self._ddl = ddl or self._GetDefaultDDL()
     self._config = config or self._GetDefaultConfig()
     self.nodes = nodes or _DEFAULT_NODES
     self._end_point = None
@@ -225,6 +232,12 @@ class GcpSpannerInstance(resource.BaseResource):
     except IndexError:
       region = _DEFAULT_REGION
     return f'regional-{region}'
+  
+  def _GetDefaultDDL(self) -> str:
+    """Gets the default ddl used for the test."""
+    if self._db_dialect == DB_DIALECT_PGSQL:
+      return _DEFAULT_PGSQL_DDL
+    return _DEFAULT_GOOGLESQL_DDL
 
   @classmethod
   def FromSpec(cls, spanner_spec: SpannerSpec) -> 'GcpSpannerInstance':
