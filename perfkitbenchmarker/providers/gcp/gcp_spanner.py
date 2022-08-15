@@ -36,12 +36,16 @@ from perfkitbenchmarker.configs import spec
 from perfkitbenchmarker.providers.gcp import util
 import requests
 
+# Valid Spanner database dialects:
+DB_DIALECT_GOOGLESQL = 'GOOGLE_STANDARD_SQL'
+DB_DIALECT_PG = 'POSTGRESQL'
 
 FLAGS = flags.FLAGS
-flags.DEFINE_string('cloud_spanner_db_dialect',
-                    None,
-                    'The dialect for the Cloud Spanner database. '
-                    'Use default config if unset.')
+flags.DEFINE_enum('cloud_spanner_db_dialect',
+                  DB_DIALECT_GOOGLESQL,
+                  [DB_DIALECT_GOOGLESQL, DB_DIALECT_PG],
+                  'The dialect for the Cloud Spanner database. '
+                  'Use default config if unset.', case_sensitive=False)
 flags.DEFINE_string('cloud_spanner_config',
                     None,
                     'The config for the Cloud Spanner instance. Use default '
@@ -55,10 +59,6 @@ flags.DEFINE_string('cloud_spanner_project',
 
 # Valid GCP Spanner types:
 DEFAULT_SPANNER_TYPE = 'default'
-
-# Valid Spanner database dialects:
-DB_DIALECT_GOOGLESQL = 'GOOGLE_STANDARD_SQL'
-DB_DIALECT_PG = 'POSTGRESQL'
 
 _DEFAULT_DB_DIALECT = DB_DIALECT_GOOGLESQL
 _DEFAULT_REGION = 'us-central1'
@@ -156,7 +156,7 @@ class SpannerSpec(freeze_restore_spec.FreezeRestoreSpec):
     """
     super()._ApplyFlags(config_values, flag_values)
     if flag_values['cloud_spanner_db_dialect'].present:
-      config_values['db_dialect'] = flag_values.cloud_spanner_db_dialect
+      config_values['db_dialect'] = flag_values.cloud_spanner_db_dialect.upper()
     if flag_values['cloud_spanner_config'].present:
       config_values['config'] = flag_values.cloud_spanner_config
     if flag_values['cloud_spanner_nodes'].present:
