@@ -38,6 +38,10 @@ import requests
 
 
 FLAGS = flags.FLAGS
+flags.DEFINE_string('cloud_spanner_db_dialect',
+                    None,
+                    'The dialect for the Cloud Spanner database. '
+                    'Use default config if unset.')
 flags.DEFINE_string('cloud_spanner_config',
                     None,
                     'The config for the Cloud Spanner instance. Use default '
@@ -52,6 +56,11 @@ flags.DEFINE_string('cloud_spanner_project',
 # Valid GCP Spanner types:
 DEFAULT_SPANNER_TYPE = 'default'
 
+# Valid Spanner database dialects:
+DB_DIALECT_GOOGLESQL = 'GOOGLE_STANDARD_SQL'
+DB_DIALECT_PG = 'POSTGRESQL'
+
+_DEFAULT_DB_DIALECT = DB_DIALECT_GOOGLESQL
 _DEFAULT_REGION = 'us-central1'
 _DEFAULT_DESCRIPTION = 'Spanner instance created by PKB.'
 _DEFAULT_DDL = """
@@ -92,6 +101,7 @@ class SpannerSpec(freeze_restore_spec.FreezeRestoreSpec):
   description: str
   database: str
   ddl: str
+  db_dialect: str
   config: str
   nodes: int
   project: str
@@ -125,6 +135,7 @@ class SpannerSpec(freeze_restore_spec.FreezeRestoreSpec):
         'database': (option_decoders.StringDecoder, _NONE_OK),
         'description': (option_decoders.StringDecoder, _NONE_OK),
         'ddl': (option_decoders.StringDecoder, _NONE_OK),
+        'db_dialect': (option_decoders.StringDecoder, _NONE_OK),
         'config': (option_decoders.StringDecoder, _NONE_OK),
         'nodes': (option_decoders.IntDecoder, _NONE_OK),
         'project': (option_decoders.StringDecoder, _NONE_OK),
@@ -144,6 +155,8 @@ class SpannerSpec(freeze_restore_spec.FreezeRestoreSpec):
           provided config values.
     """
     super()._ApplyFlags(config_values, flag_values)
+    if flag_values['cloud_spanner_db_dialect'].present:
+      config_values['db_dialect'] = flag_values.cloud_spanner_db_dialect
     if flag_values['cloud_spanner_config'].present:
       config_values['config'] = flag_values.cloud_spanner_config
     if flag_values['cloud_spanner_nodes'].present:
@@ -167,6 +180,7 @@ class GcpSpannerInstance(resource.BaseResource):
     project:     FLAGS.cloud_spanner_project
     config:      FLAGS.cloud_spanner_config
     nodes:       FLAGS.cloud_spanner_nodes
+    db_dialect:  FLAGS.cloud_spanner_db_dialect
 
   Attributes:
     name:        Name of the instance to create.
@@ -184,6 +198,7 @@ class GcpSpannerInstance(resource.BaseResource):
                description: Optional[str] = None,
                database: Optional[str] = None,
                ddl: Optional[str] = None,
+               db_dialect: Optional[str] = None,
                config: Optional[str] = None,
                nodes: Optional[int] = None,
                project: Optional[str] = None,
@@ -193,6 +208,7 @@ class GcpSpannerInstance(resource.BaseResource):
     self.database = database or f'pkb-database-{FLAGS.run_uri}'
     self._description = description or _DEFAULT_DESCRIPTION
     self._ddl = ddl or _DEFAULT_DDL
+    self._db_dialect = db_dialect or _DEFAULT_DB_DIALECT
     self._config = config or self._GetDefaultConfig()
     self.nodes = nodes or _DEFAULT_NODES
     self._end_point = None
@@ -218,6 +234,7 @@ class GcpSpannerInstance(resource.BaseResource):
         description=spanner_spec.description,
         database=spanner_spec.database,
         ddl=spanner_spec.ddl,
+        db_dialect=spanner_spec.db_dialect,
         config=spanner_spec.config,
         nodes=spanner_spec.nodes,
         project=spanner_spec.project,
@@ -241,6 +258,7 @@ class GcpSpannerInstance(resource.BaseResource):
     cmd = util.GcloudCommand(self, 'spanner', 'databases', 'create',
                              self.database)
     cmd.flags['instance'] = self.name
+    cmd.flags['database-dialect'] = self._db_dialect
     _, _, retcode = cmd.Issue(raise_on_failure=False)
     if retcode != 0:
       logging.error('Create GCP Spanner database failed.')
@@ -254,7 +272,7 @@ class GcpSpannerInstance(resource.BaseResource):
     if retcode != 0:
       logging.error('Update GCP Spanner database schema failed.')
     else:
-      logging.info('Created GCP Spanner instance and database.')
+      logging.info('Created GCP Spanner instance and %s database.', self._db_dialect)
 
   def _Delete(self) -> None:
     """Deletes the instance."""
