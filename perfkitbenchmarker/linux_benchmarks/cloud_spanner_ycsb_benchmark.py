@@ -80,6 +80,12 @@ flags.DEFINE_integer('cloud_spanner_ycsb_boundedstaleness',
 flags.DEFINE_enum('cloud_spanner_ycsb_readmode',
                   'query', ['query', 'read'],
                   'The Cloud Spanner read mode used in the YCSB benchmark.')
+flags.DEFINE_enum('cloud_spanner_ycsb_updatemode',
+                  'update', ['dml', 'update'],
+                  'The Cloud Spanner update mode used in the YCSB benchmark.')
+flags.DEFINE_enum('cloud_spanner_ycsb_insertmode',
+                  'insert', ['dml', 'insert'],
+                  'The Cloud Spanner insert mode used in the YCSB benchmark.')
 flags.DEFINE_list('cloud_spanner_ycsb_custom_vm_install_commands', [],
                   'A list of strings. If specified, execute them on every '
                   'VM during the installation phase.')
@@ -227,6 +233,8 @@ def Run(benchmark_spec):
       'cloudspanner.instance': benchmark_spec.spanner.name,
       'cloudspanner.database': benchmark_spec.spanner.database,
       'cloudspanner.readmode': FLAGS.cloud_spanner_ycsb_readmode,
+      'cloudspanner.updatemode': FLAGS.cloud_spanner_ycsb_updatemode,
+      'cloudspanner.insertmode': FLAGS.cloud_spanner_ycsb_insertmode,
       'cloudspanner.boundedstaleness':
           FLAGS.cloud_spanner_ycsb_boundedstaleness,
       'cloudspanner.batchinserts': FLAGS.cloud_spanner_ycsb_batchinserts,
